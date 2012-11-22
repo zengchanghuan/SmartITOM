@@ -1,0 +1,39 @@
+//
+//  StackTabBar.h
+//
+
+#import <Foundation/Foundation.h>
+
+@class StackTabBar;
+
+@protocol StackTabBarDelegate <NSObject>
+
+- (void)stackTabBar:(StackTabBar *)tabBar didSelectItem:(UITabBarItem *)item;
+
+@end
+
+
+@interface StackTabBar : UIView
+{
+    //按钮有状态
+	int  nIndexTouched;
+	BOOL bSelectedShow;
+    UIImageView *imageViewHighLight;
+}
+
+
+@property(nonatomic,strong) UITabBarItem *selectedItem;
+@property(nonatomic,strong) NSArray *items;
+@property(nonatomic,strong) UIImage *backImage;
+@property(nonatomic,strong) id<StackTabBarDelegate> delegate;
+
+@property(nonatomic, strong) NSArray *arrayNormalImages;
+@property(nonatomic, strong) NSArray *arraySelectedImages;
+@property(nonatomic, assign) NSUInteger selectedIndex;
+
+- (void) clearSelection;
+
+//选中了某个tabbaritem
+-(void)didSelectedIndex:(int)index;
+
+@end

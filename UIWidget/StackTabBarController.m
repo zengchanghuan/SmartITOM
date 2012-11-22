@@ -1,0 +1,582 @@
+//
+//  StackTabBarController.m
+//
+
+#import "StackTabBarController.h"
+
+// Tag 值为 0
+#define KMasterViewRect_portrait0 CGRectMake(70, 0, 706, 1004)
+#define KMasterViewRect_landScape0 CGRectMake(70, 0, 962, 748)
+
+// Tag 值为 1
+#define KMasterViewRect_portrait1  CGRectMake(70, 0, 481, 1004)
+#define KMasterViewRect_landScape1 CGRectMake(70, 0, 481, 748)
+
+#define KDetaitViewControllerRect_landScape CGRectMake(1024 - 481 , 0, 481 , 748)  //shadow width = 19;
+#define KDetaitViewControllerRect_portrait  CGRectMake(768 - 481, 0, 481 , 1004)
+
+
+#define KThirdViewControllerRect_landScape CGRectMake(0, 0, 1024,  748)
+#define KThirdViewControllerRect_portrait CGRectMake(0, 0, 768, 1004)
+
+#define KNETINDICATORVIEW_LANSCAPE  CGRectMake(11, 686, 40 , 40)
+#define KNETINDICATORVIEW_PORTRAIT  CGRectMake(11, 686 + 256, 40 , 40)
+
+#define KMPALERTVIEW_LANSCAPE  CGRectMake((1024 - 350) / 2, (748 - 264) /2.0, 350 , 264)
+#define KMPALERTVIEW_PORTRAIT  CGRectMake((768 - 350) / 2, (1004 - 264) / 2.0, 350 , 264)
+
+#define kEachItem_Width 38
+#define kEachItem_Height 38
+
+#define kEachItem_ALL_Height 55
+
+#define kTop_Space 80
+#define kLeft_Space ((kEachItem_ALL_Height - kEachItem_Width) / 2.0)
+
+
+@interface StackTabBarController ()
+{
+    NSUInteger _selectedDidIndex;
+	BOOL bLandScape;
+}
+
+//-(void)setting:(id)sender;
+
+@end
+
+@implementation StackTabBarController
+
+//@synthesize selectedDidIndex;
+@synthesize selectedViewController;
+@synthesize delegate;
+@synthesize tabBar;
+@synthesize viewControllers;
+@synthesize detailController;
+@synthesize thirdController;
+@synthesize imageViewLeftShadow;
+@synthesize imageViewRightShadow;
+
+
+-(void)dealloc
+{
+	for (UIViewController *controller in viewControllers)
+	{
+		[NSObject cancelPreviousPerformRequestsWithTarget:self];
+		[[NSNotificationCenter defaultCenter] removeObserver:controller];
+	}
+}
+
+-(id)init
+{
+    self = [super init];
+	if (self)
+	{
+		tabBar = [[StackTabBar alloc] initWithFrame:CGRectZero];
+		tabBar.delegate = self;
+		tabBar.userInteractionEnabled = YES;
+		tabBar.backgroundColor = [UIColor colorWithRed:62.0/255.0 green:62.0/255.0 blue:62.0/255.0 alpha:1.0];
+//		self.selectedIndex = NSNotFound;
+        _selectedDidIndex = NSNotFound;
+	}
+	
+	return self;
+}
+
+- (id)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self)
+    {
+        tabBar = [[StackTabBar alloc] initWithFrame:CGRectZero];
+		tabBar.delegate = self;
+		tabBar.userInteractionEnabled = YES;
+		tabBar.backgroundColor = [UIColor colorWithRed:62.0/255.0 green:62.0/255.0 blue:62.0/255.0 alpha:1.0];
+        _selectedDidIndex = NSNotFound;
+    }
+    
+    return self;
+}
+
+
+// 当UIViewController对象的视图即将加入窗口时调用
+-(void)viewWillAppear:(BOOL)animated
+{
+	[super viewWillAppear:animated];
+    if (_selectedDidIndex < [viewControllers count])
+    {
+        UIViewController *viewController = [viewControllers objectAtIndex:_selectedDidIndex];
+        [viewController viewWillAppear:animated];
+    }
+}
+
+// 当UIViewController对象的视图已经加入窗口时调用
+-(void)viewDidAppear:(BOOL)animated
+{
+	[super viewDidAppear:animated];
+	if (_selectedDidIndex < [viewControllers count])
+	{
+		UIViewController *viewController = [viewControllers objectAtIndex:_selectedDidIndex];
+		[viewController viewDidAppear:animated];
+	}
+
+	[self.view bringSubviewToFront:tabBar];
+}
+
+// 当UIViewController对象的视图即将消失，被覆盖或是隐藏时调用
+-(void)viewWillDisappear:(BOOL)animated
+{
+	[super viewWillDisappear:animated];
+    if (_selectedDidIndex < [viewControllers count])
+    {
+        UIViewController *viewController = [viewControllers objectAtIndex:_selectedDidIndex];
+        [viewController viewWillDisappear:animated];
+    }
+}
+
+// 当UIViewController对象的视图已经消失，被覆盖或是隐藏时调用
+-(void)viewDidDisappear:(BOOL)animated
+{
+	[super viewWillDisappear:animated];
+    if (_selectedDidIndex < [viewControllers count])
+    {
+        UIViewController *viewController = [viewControllers objectAtIndex:_selectedDidIndex];
+        [viewController viewDidDisappear:animated];
+    }
+}
+
+- (void)viewDidLoad
+{
+	self.view.autoresizesSubviews = NO;
+	
+	[super viewDidLoad];
+	if (tabBar == nil)
+    {
+		tabBar = [[StackTabBar alloc] initWithFrame:CGRectMake(0, 0, 70, self.view.frame.size.height)];
+		tabBar.delegate = self;
+    }
+	tabBar.frame = CGRectMake(0, 0, 70, self.view.frame.size.height);
+
+	tabBar.backgroundColor = [UIColor colorWithRed:62.0/255.0 green:62.0/255.0 blue:62.0/255.0 alpha:1.0];
+//	tabBar.backgroundColor = [UIColor clearColor];
+	tabBar.selectedItem = 0;//self.selectedDidIndex;
+
+    // 如果父视图为空加tabBar
+	if (tabBar.superview == nil)
+    {
+		[self.view addSubview:tabBar];
+	}
+	
+			
+}
+
+//刷新当前的视图
+-(void)freshCurrentMasterViewController
+{
+	UIViewController *currentController = [viewControllers objectAtIndex:_selectedDidIndex];
+	if ([currentController conformsToProtocol:NSProtocolFromString(@"ControllerInTabbarDelegate")]
+        && [currentController respondsToSelector:@selector(ViewFreshData)])
+	{
+		id<ControllerInTabbarDelegate> cdelegate = (id<ControllerInTabbarDelegate>)currentController;
+		[cdelegate viewFreshData];
+	}
+}
+
+#pragma mark Private methods
+
+-(void)setBadgeValue:(NSString *)value index:(int)index
+{
+	if (index >= [tabBar.items count])
+    {
+		return;
+	}
+}
+
+#pragma mark -
+
+-(void)setSelectedIndex:(NSUInteger)index
+{
+	if (viewControllers == nil
+        || index >= [viewControllers count]
+        || index == _selectedDidIndex)
+    {
+        return;
+    }
+	
+    UIViewController *currentController = nil;
+    if (_selectedDidIndex < [viewControllers count])
+    {
+        currentController = [viewControllers objectAtIndex:_selectedDidIndex];
+    }
+	
+	UIViewController *nextController = [viewControllers objectAtIndex:index];
+
+	if (index == 0)
+    {
+		nextController.view.frame = bLandScape ? KMasterViewRect_landScape0 : KMasterViewRect_portrait0;
+		NSLog(@"index应该为0=%d",index);
+    }
+	else if (index == 1)
+    {
+		nextController.view.frame = bLandScape ? KMasterViewRect_landScape1 : KMasterViewRect_portrait1;
+		NSLog(@"index应该为1=%d",index);
+    }
+    else if (index == 2)
+    {
+		nextController.view.frame = bLandScape ? KMasterViewRect_landScape1 :KMasterViewRect_portrait1;
+		NSLog(@"index应该为2=%d",index);
+    }
+	else if (index == 3)
+    {
+		nextController.view.frame = bLandScape ? KMasterViewRect_landScape1 :KMasterViewRect_portrait1;
+		NSLog(@"index应该为3=%d",index);
+    }
+	
+
+    // 移除当前视图的父视图
+    if (nil != currentController)
+        [currentController.view removeFromSuperview];
+
+    // 加载下一个tabBar对应的视图
+	[self.view addSubview:nextController.view];
+    
+    NSLog(@"selectedDidIndex=%d",_selectedDidIndex);
+    NSLog(@"index=%d",index);
+    
+    _selectedDidIndex = index;
+	tabBar.tabBarselectedIndex = _selectedDidIndex;
+	[self.view bringSubviewToFront:tabBar];
+	
+	
+//	[self hideDetailController:YES];
+}
+
+-(void)setViewControllers:(NSArray *)viewController
+{
+
+	viewControllers = viewController;
+	if (tabBar == nil)
+    {
+		tabBar = [[StackTabBar alloc] initWithFrame:CGRectZero];
+		tabBar.delegate = self;
+	}
+
+	NSMutableArray *array = [NSMutableArray arrayWithCapacity:[viewController count]];
+	for (int i = 0; i < [viewController count]; i++)
+    {
+		UIViewController *vc = [viewController objectAtIndex:i];
+		[array addObject:vc.tabBarItem];
+	}
+	tabBar.items = [NSArray arrayWithArray:array];
+	
+}
+
+
+-(void) showDetailController:(UIViewController *)viewController animated:(BOOL)animated
+{
+	if (detailController && detailController.view.subviews != nil)
+    {
+		[self hideDetailControllerBackGround];
+	}
+	UINavigationController *naVC = [[UINavigationController alloc] initWithRootViewController:viewController];
+	self.detailController = naVC;
+	naVC.delegate = self;
+	naVC.view.frame = bLandScape ? KDetaitViewControllerRect_landScape:KDetaitViewControllerRect_portrait;
+	viewController.view.frame = CGRectMake(0, 0, naVC.view.frame.size.width, naVC.view.frame.size.height-44);
+	viewController.navigationItem.rightBarButtonItem = [UIBarButtonItem createBarButtonItemWithTitle:@"关闭" type:KNAV_BARBUTTONITEM_TYPE_ROUNDRECT target:self action:@selector(hideDetailController:)];
+
+    // 添加手势 向右滑的手势
+	UISwipeGestureRecognizer *swipeGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(detailSwipeFromLeft)];
+	swipeGesture.direction =  UISwipeGestureRecognizerDirectionRight;
+	[naVC.view addGestureRecognizer:swipeGesture];
+	
+	UIImageView *iv = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"detailView_left_shadow.png"]];
+	iv.frame = CGRectMake(-25, 0, 27, naVC.view.frame.size.height);
+	[naVC.view addSubview:iv];
+	iv.tag = 888;
+	
+	[naVC willAnimateRotationToInterfaceOrientation:[[UIApplication sharedApplication] statusBarOrientation] duration:1.0];
+    
+	if (animated)
+    {
+        CATransition *transition = [CATransition animation];
+		transition.duration = 0.4;
+		transition.delegate = nil;
+		transition.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+		transition.type =   kCATransitionPush;
+		transition.subtype = kCATransitionFromRight;
+		[detailController.view.layer addAnimation:transition forKey:nil];
+    }
+	
+	[naVC viewWillAppear:YES];
+	[self.view addSubview:naVC.view];
+	[naVC viewDidAppear:YES];
+}
+-(void) showSimpleDetailController:(UIViewController *)viewController animated:(BOOL)animated
+{
+	[self hideDetailController:YES];
+	
+	viewController.view.frame = bLandScape ? KDetaitViewControllerRect_landScape : KDetaitViewControllerRect_portrait;
+	
+    //添加手势 向右滑的手势
+	UISwipeGestureRecognizer *swipeGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(detailSwipeFromLeft)];
+	swipeGesture.direction =  UISwipeGestureRecognizerDirectionRight;
+	[viewController.view addGestureRecognizer:swipeGesture];
+	
+	UIImageView *iv = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"detail_left_shadow.png"]];
+	iv.frame = CGRectMake(-25, 0, 27, viewController.view.frame.size.height);
+	[viewController.view addSubview:iv];
+	iv.tag = 888;
+	
+	[viewController willAnimateRotationToInterfaceOrientation:[[UIApplication sharedApplication] statusBarOrientation] duration:1.0];
+	
+	if (animated)
+    {
+		CATransition *transition = [CATransition animation];
+		transition.duration = 0.4;
+		transition.delegate = nil;
+		transition.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+		transition.type =   kCATransitionPush;
+		transition.subtype = kCATransitionFromRight;
+		[viewController.view.layer addAnimation:transition forKey:nil];
+    }
+	
+	[viewController viewWillAppear:YES];
+	[self.view addSubview:viewController.view];
+	[viewController viewDidAppear:YES];
+	
+	self.detailController = viewController;
+}
+
+-(void)hideDetailController:(BOOL)animated
+{
+	if (detailController && [detailController.view superview])
+    {
+		if (animated)
+        {
+			[UIView beginAnimations:@"hidedetailcontroller" context:nil];
+			[UIView	 setAnimationCurve:UIViewAnimationCurveEaseInOut];
+			[UIView setAnimationDuration:0.4];
+			[UIView setAnimationDelegate:self];
+			[UIView setAnimationDidStopSelector:@selector(animationDidStop:finished:context:)];
+             
+            CATransition *transition = [CATransition animation];
+            transition.duration = 1.0;
+            transition.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+            transition.type =   kCATransitionPush;
+            transition.subtype = kCATransitionFromLeft;
+            transition.delegate = self;
+
+			CGRect rect = CGRectZero;
+			if (bLandScape)
+            {
+				rect = CGRectMake(1024, 0, 1024 - 535, 768 - 20);
+            }
+			
+			else
+            {
+				rect = CGRectMake(768, 0, 768 - 277, 1024 - 20);
+            }
+
+			detailController.view.alpha = 0;
+			detailController.view.frame = rect;
+			[UIView commitAnimations];
+            //[detailController.view.layer addAnimation:transition forKey:@"removeDetailView"];
+        }
+		else
+        {
+			[detailController.view removeFromSuperview];
+			self.detailController  = nil;
+        }
+    }
+
+    // 取消选择
+	UIViewController *currentController = [viewControllers objectAtIndex:_selectedDidIndex];
+	if([currentController conformsToProtocol:NSProtocolFromString(@"ControllerInTabbarDelegate")] && [currentController respondsToSelector:@selector(ViewDeselectCurrentSelect)])
+    {
+		id<ControllerInTabbarDelegate> cdelegate = (id<ControllerInTabbarDelegate>)currentController;
+		[cdelegate viewDeselectCurrentSelect];
+    }
+}
+
+-(void)hideDetailControllerBackGround
+{
+	if (detailController && [detailController.view superview])
+    {
+		[detailController.view removeFromSuperview];
+    }
+
+	self.detailController  = nil;
+}
+
+-(void)detailSwipeFromLeft
+{
+	if (detailController == nil || detailController.view.superview == nil)
+    {
+        return;
+    }
+
+	if (![detailController isKindOfClass:[UINavigationController class]])
+    {
+        // detailconroller 不是导航控制器
+		[self hideDetailController:YES];
+    }
+	
+    // detailconroller是导航控制器
+	
+    UINavigationController *nc = (UINavigationController *)detailController;
+	if (nc.viewControllers.count == 1)
+    {
+		[self hideDetailController:YES];
+    }
+	else
+    {
+		[nc popViewControllerAnimated:YES];
+	}
+}
+
+-(void)animationDidStop:(NSString *)animationID finished:(NSNumber *)finished context:(void *)context
+{
+	if ([animationID isEqualToString:@"hideDetailController"])
+    {
+		[detailController.view removeFromSuperview];
+		self.detailController = nil;
+    }
+	else if([animationID isEqualToString:@"hidedThirdcontroller"])
+    {
+//		[thirdBgView removeFromSuperview];
+//		thirdBgView = nil;
+//		[thirdController.view removeFromSuperview];
+//		self.thirdController = nil;
+    }
+}
+
+-(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag
+{
+	
+}
+
+#pragma mark UINavigationController delegate methods
+
+-(void)navigationController:(UINavigationController *)navigationController didShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+	
+	[viewController didRotateFromInterfaceOrientation:[[UIApplication sharedApplication] statusBarOrientation]];
+	
+}
+-(void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+	viewController.view.frame = CGRectMake(0, 0, detailController.view.frame.size.width, detailController.view.frame.size.height-44);
+	[viewController willAnimateRotationToInterfaceOrientation:[[UIApplication sharedApplication] statusBarOrientation] duration:1.0];
+	
+}
+
+#pragma mark Rotate
+
+-(BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
+{
+	if (toInterfaceOrientation == UIInterfaceOrientationPortrait)
+    {
+		self.view.frame = CGRectMake(0, 20, 768, 1004);
+	}
+
+	if (toInterfaceOrientation == UIInterfaceOrientationLandscapeLeft
+        || toInterfaceOrientation == UIInterfaceOrientationLandscapeRight)
+    {
+		bLandScape = TRUE;
+	}
+
+	self.view.backgroundColor = [UIColor colorWithPatternImage:[UIImage imageNamed:bLandScape ? @"login_bg_h.png" : @"login_bg_v.png"]];
+
+
+
+	return YES;
+}
+
+-(void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation
+{
+	if (detailController && detailController.view.superview)
+    {
+		[detailController didRotateFromInterfaceOrientation:fromInterfaceOrientation];
+	}
+}
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration
+{
+    //NSLog(@"interfaceOrientation = %d", interfaceOrientation);
+	
+	if (interfaceOrientation == UIInterfaceOrientationLandscapeLeft
+        || interfaceOrientation == UIInterfaceOrientationLandscapeRight)
+    {
+		bLandScape = YES;
+    }
+	else
+    {
+		bLandScape = NO;
+    }
+
+	self.view.backgroundColor = [UIColor colorWithPatternImage:[UIImage imageNamed:bLandScape ? @"login_bg_h.png" : @"login_bg_v.png"]];
+	
+	UIViewController *currentController = [viewControllers objectAtIndex:_selectedDidIndex];
+
+	if (_selectedDidIndex == 0)
+	{
+		currentController.view.frame = bLandScape ? KMasterViewRect_landScape0 :KMasterViewRect_portrait0;
+	}
+	else if (_selectedDidIndex == 1)
+	{
+		currentController.view.frame = bLandScape ? KMasterViewRect_landScape1 :KMasterViewRect_portrait1;
+	}
+	else if (_selectedDidIndex == 2)
+	{
+		currentController.view.frame = bLandScape ? KMasterViewRect_landScape1 :KMasterViewRect_portrait1;
+	}
+	if (_selectedDidIndex == 3)
+    {
+		currentController.view.frame = bLandScape ? KMasterViewRect_landScape1 :KMasterViewRect_portrait1;
+	}
+
+		
+	
+	[currentController willAnimateRotationToInterfaceOrientation:interfaceOrientation duration:duration];
+	
+	if (detailController && detailController.view.superview)
+    {
+		detailController.view.frame = bLandScape ? KDetaitViewControllerRect_landScape : KDetaitViewControllerRect_portrait;
+		[detailController willAnimateRotationToInterfaceOrientation:interfaceOrientation duration:duration];
+		
+        // detailcontroller的阴影
+		UIImageView *iv = (UIImageView *)[detailController.view viewWithTag:888];
+		if (iv && [iv isKindOfClass:[UIImageView class]])
+        {
+			iv.frame = CGRectMake(-25, 0, 27, detailController.view.frame.size.height);
+        }
+    }
+	
+	tabBar.frame = CGRectMake(0,0, 70, self.view.frame.size.height);
+    //btnLogout.frame = CGRectMake(0,(bLandScape? 748 : 1004) - 42 - 20,64,42);
+	
+	[tabBar setNeedsDisplay];
+
+
+}
+
+
+#pragma mark TabBarDelegate methods
+- (void)stackTabBar:(StackTabBar *)stabBar didSelectItem:(UITabBarItem *)item;
+
+{
+	if (delegate && [delegate respondsToSelector:@selector(stackTabBarController:shouldSelectViewController:)])
+    {
+		[delegate stackTabBarController:self shouldSelectViewController:[viewControllers objectAtIndex:stabBar.tabBarselectedIndex]];
+    }
+    
+	self.selectedIndex = stabBar.tabBarselectedIndex;
+    
+	if (delegate && [delegate respondsToSelector:@selector(stackTabBarController:didSelectViewController:)])
+    {
+		[delegate stackTabBarController:self didSelectViewController:[viewControllers objectAtIndex:stabBar.tabBarselectedIndex]];
+    }
+}
+
+
+@end
